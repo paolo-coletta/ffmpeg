@@ -104,6 +104,8 @@ typedef struct MpegTSWrite {
 
     int pmt_start_pid;
     int start_pid;
+    int start_audio_pid;
+    int start_video_pid;
     int m2ts_mode;
     int m2ts_video_pid;
     int m2ts_audio_pid;
@@ -1107,8 +1109,8 @@ static int mpegts_init(AVFormatContext *s)
         }
     }
 
-    ts->m2ts_video_pid   = M2TS_VIDEO_PID;
-    ts->m2ts_audio_pid   = M2TS_AUDIO_START_PID;
+    ts->m2ts_video_pid   = ts->start_video_pid;
+    ts->m2ts_audio_pid   = ts->start_audio_pid;
     ts->m2ts_pgssub_pid  = M2TS_PGSSUB_START_PID;
     ts->m2ts_textsub_pid = M2TS_TEXTSUB_PID;
 
@@ -1200,6 +1202,7 @@ static int mpegts_init(AVFormatContext *s)
                     }
                     break;
                 }
+                /* Paolo Coletta: commented as the below rule does not seem to hold for broadcasters
                 if (ts->m2ts_video_pid   > M2TS_VIDEO_PID + 1          ||
                     ts->m2ts_audio_pid   > M2TS_AUDIO_START_PID + 32   ||
                     ts->m2ts_pgssub_pid  > M2TS_PGSSUB_START_PID + 32  ||
@@ -1208,6 +1211,7 @@ static int mpegts_init(AVFormatContext *s)
                     av_log(s, AV_LOG_ERROR, "Cannot automatically assign PID for stream %d\n", st->index);
                     return AVERROR(EINVAL);
                 }
+                */
             } else {
                 ts_st->pid = ts->start_pid + i;
             }
@@ -2357,6 +2361,10 @@ static const AVOption options[] = {
       OFFSET(pmt_start_pid), AV_OPT_TYPE_INT, { .i64 = 0x1000 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
     { "mpegts_start_pid", "Set the first pid.",
       OFFSET(start_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
+    { "mpegts_start_audio_pid", "Set the first audio pid.",
+      OFFSET(start_audio_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
+    { "mpegts_start_video_pid", "Set the first video pid.",
+      OFFSET(start_video_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
     { "mpegts_m2ts_mode", "Enable m2ts mode.", OFFSET(m2ts_mode), AV_OPT_TYPE_BOOL, { .i64 = -1 }, -1, 1, ENC },
     { "muxrate", NULL, OFFSET(mux_rate), AV_OPT_TYPE_INT, { .i64 = 1 }, 0, INT_MAX, ENC },
     { "pes_payload_size", "Minimum PES packet payload in bytes",
