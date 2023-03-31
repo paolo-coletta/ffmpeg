@@ -1183,38 +1183,34 @@ static int mpegts_init(AVFormatContext *s)
         /* MPEG pid values < 16 are reserved. Applications which set st->id in
          * this range are assigned a calculated pid. */
         if (st->id < 16) {
-            if (ts->m2ts_mode) {
-                switch (st->codecpar->codec_type) {
-                case AVMEDIA_TYPE_VIDEO:
-                    ts_st->pid = ts->m2ts_video_pid++;
+            switch (st->codecpar->codec_type) {
+            case AVMEDIA_TYPE_VIDEO:
+                ts_st->pid = ts->m2ts_video_pid++;
+                break;
+            case AVMEDIA_TYPE_AUDIO:
+                ts_st->pid = ts->m2ts_audio_pid++;
+                break;
+            case AVMEDIA_TYPE_SUBTITLE:
+                switch (st->codecpar->codec_id) {
+                case AV_CODEC_ID_HDMV_PGS_SUBTITLE:
+                    ts_st->pid = ts->m2ts_pgssub_pid++;
                     break;
-                case AVMEDIA_TYPE_AUDIO:
-                    ts_st->pid = ts->m2ts_audio_pid++;
-                    break;
-                case AVMEDIA_TYPE_SUBTITLE:
-                    switch (st->codecpar->codec_id) {
-                    case AV_CODEC_ID_HDMV_PGS_SUBTITLE:
-                        ts_st->pid = ts->m2ts_pgssub_pid++;
-                        break;
-                    case AV_CODEC_ID_HDMV_TEXT_SUBTITLE:
-                        ts_st->pid = ts->m2ts_textsub_pid++;
-                        break;
-                    }
+                case AV_CODEC_ID_HDMV_TEXT_SUBTITLE:
+                    ts_st->pid = ts->m2ts_textsub_pid++;
                     break;
                 }
-                /* Paolo Coletta: commented as the below rule does not seem to hold for broadcasters
-                if (ts->m2ts_video_pid   > M2TS_VIDEO_PID + 1          ||
-                    ts->m2ts_audio_pid   > M2TS_AUDIO_START_PID + 32   ||
-                    ts->m2ts_pgssub_pid  > M2TS_PGSSUB_START_PID + 32  ||
-                    ts->m2ts_textsub_pid > M2TS_TEXTSUB_PID + 1        ||
-                    ts_st->pid < 16) {
-                    av_log(s, AV_LOG_ERROR, "Cannot automatically assign PID for stream %d\n", st->index);
-                    return AVERROR(EINVAL);
-                }
-                */
-            } else {
-                ts_st->pid = ts->start_pid + i;
+                break;
             }
+            /* Paolo Coletta: commented as the below rule does not seem to hold for broadcasters
+            if (ts->m2ts_video_pid   > M2TS_VIDEO_PID + 1          ||
+                ts->m2ts_audio_pid   > M2TS_AUDIO_START_PID + 32   ||
+                ts->m2ts_pgssub_pid  > M2TS_PGSSUB_START_PID + 32  ||
+                ts->m2ts_textsub_pid > M2TS_TEXTSUB_PID + 1        ||
+                ts_st->pid < 16) {
+                av_log(s, AV_LOG_ERROR, "Cannot automatically assign PID for stream %d\n", st->index);
+                return AVERROR(EINVAL);
+            }
+            */
         } else {
             ts_st->pid = st->id;
         }
@@ -2361,7 +2357,7 @@ static const AVOption options[] = {
       OFFSET(pmt_start_pid), AV_OPT_TYPE_INT, { .i64 = 0x1000 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
     { "mpegts_start_pid", "Set the first pid.",
       OFFSET(start_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
-    { "mpegts_start_audio_pid", "Set the first audio pid.",
+    { "mpegts_start_audio_pid", "Set the first audio pid. (deprectated in this custimzed version: use mpegts_start_audio_pid and mpegts_start_video_pid instead!",
       OFFSET(start_audio_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
     { "mpegts_start_video_pid", "Set the first video pid.",
       OFFSET(start_video_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
