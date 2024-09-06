@@ -1,0 +1,6 @@
+ffmpeg (6.0-0encoder) unstable; urgency=medium
+
+  * Encoder-specific version of FFmpeg 6.0.
+
+ -- Paolo Coletta paolo.coletta@gmail.com  Wed, 03 May 2023 12:00:00 +0000
+

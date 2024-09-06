@@ -1,0 +1,52 @@
+#!/usr/bin/make -f
+
+HOME := /home/mainlink
+
+# Before running
+# dpkg-buildpackage -us -uc -b
+# do:
+# LD_LIBRARY_PATH=/home/mainlink/ffmpeg_build/lib && export LD_LIBRARY_PATH
+# PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" && export PKG_CONFIG_PATH
+
+# Set the appropriate CFLAGS, LDFLAGS, and other build options for FFmpeg
+FFMPEG_CONFIGURE_FLAGS := \
+	--prefix="$(HOME)/ffmpeg_build" \
+	--pkg-config-flags="--static" \
+	--extra-cflags="-I$(HOME)/ffmpeg_build/include -I$(HOME)/ffmpeg_sources/BMD_SDK/include" \
+	--extra-ldflags="-L$(HOME)/ffmpeg_build/lib" \
+	--extra-libs="-lpthread -lm" \
+	--ld="g++" \
+	--bindir="$(HOME)/bin" \
+	--enable-gpl \
+	--enable-gnutls \
+	--enable-libaom \
+	--enable-libass \
+	--enable-libfdk-aac \
+	--enable-libfreetype \
+	--enable-libmp3lame \
+	--enable-libopus \
+	--enable-libsvtav1 \
+	--enable-libdav1d \
+	--enable-libvorbis \
+	--enable-libvpx \
+	--enable-libx264 \
+	--enable-libx265 \
+	--enable-libsrt  \
+	--enable-nonfree \
+	--enable-decklink \
+	--enable-muxer=mpegts
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+# Handle the --build option
+# DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+# FFMPEG_CONFIGURE_FLAGS += --build=$(DEB_HOST_MULTIARCH)
+
+%:
+	dh $@ --with autoreconf
+
+override_dh_auto_configure:
+	./configure $(FFMPEG_CONFIGURE_FLAGS)
+	
+override_dh_auto_test:
+	# Skip tests
