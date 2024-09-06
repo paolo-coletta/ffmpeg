@@ -4,8 +4,8 @@ FFmpeg README
 FFmpeg is a collection of libraries and tools to process multimedia content
 such as audio, video, subtitles and related metadata.
 
-**This version is modified to support assigning non-consecutive PIDs in the mpegts**
-**transport stream**
+**This version is modified to support assigning non-consecutive PIDs in the mpegts
+transport stream**
 
 ## Libraries
 
