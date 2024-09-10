@@ -29,6 +29,7 @@
 
 #include <ass/ass.h>
 
+#include "config.h"
 #include "config_components.h"
 #if CONFIG_SUBTITLES_FILTER
 # include "libavcodec/avcodec.h"
@@ -36,12 +37,12 @@
 # include "libavformat/avformat.h"
 #endif
 #include "libavutil/avstring.h"
-#include "libavutil/mem.h"
+#include "libavutil/imgutils.h"
 #include "libavutil/opt.h"
-
-#include "filters.h"
+#include "libavutil/parseutils.h"
 #include "drawutils.h"
 #include "avfilter.h"
+#include "internal.h"
 #include "formats.h"
 #include "video.h"
 

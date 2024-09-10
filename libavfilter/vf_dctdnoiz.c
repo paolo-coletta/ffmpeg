@@ -30,11 +30,9 @@
 
 #include "libavutil/avassert.h"
 #include "libavutil/eval.h"
-#include "libavutil/mem.h"
 #include "libavutil/mem_internal.h"
 #include "libavutil/opt.h"
-
-#include "filters.h"
+#include "internal.h"
 #include "video.h"
 
 static const char *const var_names[] = { "c", NULL };

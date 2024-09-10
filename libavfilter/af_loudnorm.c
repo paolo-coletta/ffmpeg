@@ -20,11 +20,11 @@
 
 /* http://k.ylo.ph/2016/04/04/loudnorm.html */
 
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "avfilter.h"
 #include "filters.h"
 #include "formats.h"
+#include "internal.h"
 #include "audio.h"
 #include "ebur128.h"
 
@@ -728,9 +728,7 @@ static int activate(AVFilterContext *ctx)
     return FFERROR_NOT_READY;
 }
 
-static int query_formats(const AVFilterContext *ctx,
-                         AVFilterFormatsConfig **cfg_in,
-                         AVFilterFormatsConfig **cfg_out)
+static int query_formats(AVFilterContext *ctx)
 {
     LoudNormContext *s = ctx->priv;
     static const int input_srate[] = {192000, -1};
@@ -738,16 +736,19 @@ static int query_formats(const AVFilterContext *ctx,
             AV_SAMPLE_FMT_DBL,
             AV_SAMPLE_FMT_NONE
     };
-    int ret;
-
-    ret = ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, sample_fmts);
+    int ret = ff_set_common_all_channel_counts(ctx);
     if (ret < 0)
         return ret;
 
-    if (s->frame_type != LINEAR_MODE) {
-        return ff_set_common_samplerates_from_list2(ctx, cfg_in, cfg_out, input_srate);
+    ret = ff_set_common_formats_from_list(ctx, sample_fmts);
+    if (ret < 0)
+        return ret;
+
+    if (s->frame_type == LINEAR_MODE) {
+        return ff_set_common_all_samplerates(ctx);
+    } else {
+        return ff_set_common_samplerates_from_list(ctx, input_srate);
     }
-    return 0;
 }
 
 static int config_input(AVFilterLink *inlink)
@@ -936,5 +937,5 @@ const AVFilter ff_af_loudnorm = {
     .uninit        = uninit,
     FILTER_INPUTS(avfilter_af_loudnorm_inputs),
     FILTER_OUTPUTS(ff_audio_default_filterpad),
-    FILTER_QUERY_FUNC2(query_formats),
+    FILTER_QUERY_FUNC(query_formats),
 };

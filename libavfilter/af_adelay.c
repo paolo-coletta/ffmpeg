@@ -19,12 +19,13 @@
  */
 
 #include "libavutil/avstring.h"
-#include "libavutil/mem.h"
+#include "libavutil/eval.h"
 #include "libavutil/opt.h"
 #include "libavutil/samplefmt.h"
 #include "avfilter.h"
 #include "audio.h"
 #include "filters.h"
+#include "internal.h"
 
 typedef struct ChanDelay {
     int64_t delay;

@@ -26,7 +26,6 @@
 #include "libavutil/avassert.h"
 #include "libavutil/common.h"
 #include "libavutil/log.h"
-#include "libavutil/mem.h"
 #include "libavutil/time.h"
 
 #include "avcodec.h"
@@ -118,7 +117,7 @@ static int dxva_get_decoder_configuration(AVCodecContext *avctx,
 
     for (i = 0; i < cfg_count; i++) {
         unsigned score;
-        UINT ConfigBitstreamRaw = 0;
+        UINT ConfigBitstreamRaw;
         GUID guidConfigBitstreamEncryption;
 
 #if CONFIG_D3D11VA
@@ -269,7 +268,7 @@ static int dxva_get_decoder_guid(AVCodecContext *avctx, void *service, void *sur
     *decoder_guid = ff_GUID_NULL;
     for (i = 0; dxva_modes[i].guid; i++) {
         const dxva_mode *mode = &dxva_modes[i];
-        int validate = 0;
+        int validate;
         if (!dxva_check_codec_compatibility(avctx, mode))
             continue;
 
@@ -806,7 +805,7 @@ int ff_dxva2_commit_buffer(AVCodecContext *avctx,
                            unsigned type, const void *data, unsigned size,
                            unsigned mb_count)
 {
-    void     *dxva_data = NULL;
+    void     *dxva_data;
     unsigned dxva_size;
     int      result;
     HRESULT hr = 0;
@@ -828,7 +827,7 @@ int ff_dxva2_commit_buffer(AVCodecContext *avctx,
                type, (unsigned)hr);
         return -1;
     }
-    if (dxva_data && size <= dxva_size) {
+    if (size <= dxva_size) {
         memcpy(dxva_data, data, size);
 
 #if CONFIG_D3D11VA
@@ -906,7 +905,7 @@ int ff_dxva2_common_end_frame(AVCodecContext *avctx, AVFrame *frame,
 #endif
     DECODER_BUFFER_DESC             *buffer = NULL, *buffer_slice = NULL;
     int result, runs = 0;
-    HRESULT hr = -1;
+    HRESULT hr;
     unsigned type;
     FFDXVASharedContext *sctx = DXVA_SHARED_CONTEXT(avctx);
 

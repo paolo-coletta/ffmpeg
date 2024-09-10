@@ -25,12 +25,11 @@
  */
 
 #include <float.h>
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/timestamp.h"
 #include "avfilter.h"
-#include "filters.h"
+#include "internal.h"
 #include "video.h"
 
 typedef struct BlackDetectContext {
@@ -173,7 +172,6 @@ static int black_counter(AVFilterContext *ctx, void *arg,
 
 static int filter_frame(AVFilterLink *inlink, AVFrame *picref)
 {
-    FilterLink *inl = ff_filter_link(inlink);
     AVFilterContext *ctx = inlink->dst;
     BlackDetectContext *s = ctx->priv;
     double picture_black_ratio = 0;
@@ -196,7 +194,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *picref)
 
     av_log(ctx, AV_LOG_DEBUG,
            "frame:%"PRId64" picture_black_ratio:%f pts:%s t:%s type:%c\n",
-           inl->frame_count_out, picture_black_ratio,
+           inlink->frame_count_out, picture_black_ratio,
            av_ts2str(picref->pts), av_ts2timestr(picref->pts, &s->time_base),
            av_get_picture_type_char(picref->pict_type));
 

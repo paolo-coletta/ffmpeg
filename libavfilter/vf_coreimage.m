@@ -27,11 +27,10 @@
 #import <AppKit/AppKit.h>
 
 #include "avfilter.h"
-#include "filters.h"
 #include "formats.h"
+#include "internal.h"
 #include "video.h"
 #include "libavutil/internal.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 
@@ -65,13 +64,12 @@ typedef struct CoreImageContext {
 
 static int config_output(AVFilterLink *link)
 {
-    FilterLink *l = ff_filter_link(link);
     CoreImageContext *ctx = link->src->priv;
 
     link->w                   = ctx->w;
     link->h                   = ctx->h;
     link->sample_aspect_ratio = ctx->sar;
-    l->frame_rate             = ctx->frame_rate;
+    link->frame_rate          = ctx->frame_rate;
     link->time_base           = ctx->time_base;
 
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(link->format);

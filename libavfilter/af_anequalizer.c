@@ -22,12 +22,11 @@
 #include "libavutil/intreadwrite.h"
 #include "libavutil/avstring.h"
 #include "libavutil/ffmath.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/parseutils.h"
 #include "avfilter.h"
-#include "filters.h"
 #include "formats.h"
+#include "internal.h"
 #include "audio.h"
 #include "video.h"
 
@@ -217,11 +216,13 @@ static av_cold int init(AVFilterContext *ctx)
     return 0;
 }
 
-static int query_formats(const AVFilterContext *ctx,
-                         AVFilterFormatsConfig **cfg_in,
-                         AVFilterFormatsConfig **cfg_out)
+static int query_formats(AVFilterContext *ctx)
 {
-    const AudioNEqualizerContext *s = ctx->priv;
+    AVFilterLink *inlink = ctx->inputs[0];
+    AVFilterLink *outlink = ctx->outputs[0];
+    AudioNEqualizerContext *s = ctx->priv;
+    AVFilterFormats *formats;
+    AVFilterChannelLayouts *layouts;
     static const enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_RGBA, AV_PIX_FMT_NONE };
     static const enum AVSampleFormat sample_fmts[] = {
         AV_SAMPLE_FMT_DBLP,
@@ -230,13 +231,25 @@ static int query_formats(const AVFilterContext *ctx,
     int ret;
 
     if (s->draw_curves) {
-        ret = ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, pix_fmts);
-        if (ret < 0)
+        AVFilterLink *videolink = ctx->outputs[1];
+        formats = ff_make_format_list(pix_fmts);
+        if ((ret = ff_formats_ref(formats, &videolink->incfg.formats)) < 0)
             return ret;
     }
 
-    ret = ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, sample_fmts);
-    if (ret < 0)
+    formats = ff_make_format_list(sample_fmts);
+    if ((ret = ff_formats_ref(formats, &inlink->outcfg.formats)) < 0 ||
+        (ret = ff_formats_ref(formats, &outlink->incfg.formats)) < 0)
+        return ret;
+
+    layouts = ff_all_channel_counts();
+    if ((ret = ff_channel_layouts_ref(layouts, &inlink->outcfg.channel_layouts)) < 0 ||
+        (ret = ff_channel_layouts_ref(layouts, &outlink->incfg.channel_layouts)) < 0)
+        return ret;
+
+    formats = ff_all_samplerates();
+    if ((ret = ff_formats_ref(formats, &inlink->outcfg.samplerates)) < 0 ||
+        (ret = ff_formats_ref(formats, &outlink->incfg.samplerates)) < 0)
         return ret;
 
     return 0;
@@ -761,7 +774,7 @@ const AVFilter ff_af_anequalizer = {
     .uninit        = uninit,
     FILTER_INPUTS(inputs),
     .outputs       = NULL,
-    FILTER_QUERY_FUNC2(query_formats),
+    FILTER_QUERY_FUNC(query_formats),
     .process_command = process_command,
     .flags         = AVFILTER_FLAG_DYNAMIC_OUTPUTS |
                      AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL |

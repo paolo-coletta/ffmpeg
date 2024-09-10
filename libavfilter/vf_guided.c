@@ -19,12 +19,12 @@
  */
 
 #include "libavutil/imgutils.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avfilter.h"
 #include "filters.h"
 #include "framesync.h"
+#include "internal.h"
 #include "video.h"
 
 enum FilterModes {
@@ -336,8 +336,6 @@ static int config_output(AVFilterLink *outlink)
     AVFilterContext *ctx = outlink->src;
     GuidedContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
-    FilterLink         *il = ff_filter_link(mainlink);
-    FilterLink         *ol = ff_filter_link(outlink);
     FFFrameSyncIn *in;
     int w, h, ret;
 
@@ -353,7 +351,7 @@ static int config_output(AVFilterLink *outlink)
     outlink->h = h = mainlink->h;
     outlink->time_base = mainlink->time_base;
     outlink->sample_aspect_ratio = mainlink->sample_aspect_ratio;
-    ol->frame_rate = il->frame_rate;
+    outlink->frame_rate = mainlink->frame_rate;
 
     s->I      = av_calloc(w * h, sizeof(*s->I));
     s->II     = av_calloc(w * h, sizeof(*s->II));

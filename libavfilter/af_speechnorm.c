@@ -29,7 +29,6 @@
 
 #include "libavutil/avassert.h"
 #include "libavutil/channel_layout.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 
 #define FF_BUFQUEUE_SIZE (1024)
@@ -38,6 +37,7 @@
 #include "audio.h"
 #include "avfilter.h"
 #include "filters.h"
+#include "internal.h"
 
 #define MAX_ITEMS  882000
 #define MIN_PEAK (1. / 32768.)

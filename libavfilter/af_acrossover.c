@@ -26,15 +26,16 @@
 #include "libavutil/attributes.h"
 #include "libavutil/avstring.h"
 #include "libavutil/channel_layout.h"
+#include "libavutil/eval.h"
 #include "libavutil/float_dsp.h"
 #include "libavutil/internal.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 
 #include "audio.h"
 #include "avfilter.h"
 #include "filters.h"
 #include "formats.h"
+#include "internal.h"
 
 #define MAX_SPLITS 16
 #define MAX_BANDS MAX_SPLITS + 1
@@ -108,11 +109,9 @@ static const AVOption acrossover_options[] = {
 
 AVFILTER_DEFINE_CLASS(acrossover);
 
-static int query_formats(const AVFilterContext *ctx,
-                         AVFilterFormatsConfig **cfg_in,
-                         AVFilterFormatsConfig **cfg_out)
+static int query_formats(AVFilterContext *ctx)
 {
-    const AudioCrossoverContext *s = ctx->priv;
+    AudioCrossoverContext *s = ctx->priv;
     static const enum AVSampleFormat auto_sample_fmts[] = {
         AV_SAMPLE_FMT_FLTP,
         AV_SAMPLE_FMT_DBLP,
@@ -123,7 +122,9 @@ static int query_formats(const AVFilterContext *ctx,
         AV_SAMPLE_FMT_NONE
     };
     const enum AVSampleFormat *sample_fmts_list = sample_fmts;
-    int ret;
+    int ret = ff_set_common_all_channel_counts(ctx);
+    if (ret < 0)
+        return ret;
 
     switch (s->precision) {
     case 0:
@@ -138,11 +139,11 @@ static int query_formats(const AVFilterContext *ctx,
     default:
         break;
     }
-    ret = ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, sample_fmts_list);
+    ret = ff_set_common_formats_from_list(ctx, sample_fmts_list);
     if (ret < 0)
         return ret;
 
-    return 0;
+    return ff_set_common_all_samplerates(ctx);
 }
 
 static int parse_gains(AVFilterContext *ctx)
@@ -627,7 +628,7 @@ const AVFilter ff_af_acrossover = {
     .uninit         = uninit,
     FILTER_INPUTS(inputs),
     .outputs        = NULL,
-    FILTER_QUERY_FUNC2(query_formats),
+    FILTER_QUERY_FUNC(query_formats),
     .flags          = AVFILTER_FLAG_DYNAMIC_OUTPUTS |
                       AVFILTER_FLAG_SLICE_THREADS,
 };

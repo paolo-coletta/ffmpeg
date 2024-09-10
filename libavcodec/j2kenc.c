@@ -72,7 +72,6 @@
 #include "jpeg2000.h"
 #include "version.h"
 #include "libavutil/common.h"
-#include "libavutil/mem.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/opt.h"
 #include "libavutil/intreadwrite.h"
@@ -1865,7 +1864,6 @@ const FFCodec ff_jpeg2000_encoder = {
         AV_PIX_FMT_PAL8,
         AV_PIX_FMT_NONE
     },
-    .color_ranges   = AVCOL_RANGE_MPEG,
     .p.priv_class   = &j2k_class,
     .caps_internal  = FF_CODEC_CAP_INIT_CLEANUP,
 };

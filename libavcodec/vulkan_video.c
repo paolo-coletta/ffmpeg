@@ -16,7 +16,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "libavutil/mem.h"
 #include "vulkan_video.h"
 
 #define ASPECT_2PLANE (VK_IMAGE_ASPECT_PLANE_0_BIT | VK_IMAGE_ASPECT_PLANE_1_BIT)
@@ -158,32 +157,6 @@ int ff_vk_h264_level_to_av(StdVideoH264LevelIdc level)
     }
 }
 
-StdVideoH264LevelIdc ff_vk_h264_level_to_vk(int level_idc)
-{
-    switch (level_idc) {
-    case 10: return STD_VIDEO_H264_LEVEL_IDC_1_0;
-    case 11: return STD_VIDEO_H264_LEVEL_IDC_1_1;
-    case 12: return STD_VIDEO_H264_LEVEL_IDC_1_2;
-    case 13: return STD_VIDEO_H264_LEVEL_IDC_1_3;
-    case 20: return STD_VIDEO_H264_LEVEL_IDC_2_0;
-    case 21: return STD_VIDEO_H264_LEVEL_IDC_2_1;
-    case 22: return STD_VIDEO_H264_LEVEL_IDC_2_2;
-    case 30: return STD_VIDEO_H264_LEVEL_IDC_3_0;
-    case 31: return STD_VIDEO_H264_LEVEL_IDC_3_1;
-    case 32: return STD_VIDEO_H264_LEVEL_IDC_3_2;
-    case 40: return STD_VIDEO_H264_LEVEL_IDC_4_0;
-    case 41: return STD_VIDEO_H264_LEVEL_IDC_4_1;
-    case 42: return STD_VIDEO_H264_LEVEL_IDC_4_2;
-    case 50: return STD_VIDEO_H264_LEVEL_IDC_5_0;
-    case 51: return STD_VIDEO_H264_LEVEL_IDC_5_1;
-    case 52: return STD_VIDEO_H264_LEVEL_IDC_5_2;
-    case 60: return STD_VIDEO_H264_LEVEL_IDC_6_0;
-    case 61: return STD_VIDEO_H264_LEVEL_IDC_6_1;
-    default:
-    case 62: return STD_VIDEO_H264_LEVEL_IDC_6_2;
-    }
-}
-
 int ff_vk_h265_level_to_av(StdVideoH265LevelIdc level)
 {
     switch (level) {
@@ -203,82 +176,82 @@ int ff_vk_h265_level_to_av(StdVideoH265LevelIdc level)
     }
 }
 
-StdVideoH264ProfileIdc ff_vk_h264_profile_to_vk(int profile)
+static void free_data_buf(void *opaque, uint8_t *data)
 {
-    switch (profile) {
-    case AV_PROFILE_H264_CONSTRAINED_BASELINE: return STD_VIDEO_H264_PROFILE_IDC_BASELINE;
-    case AV_PROFILE_H264_MAIN: return STD_VIDEO_H264_PROFILE_IDC_MAIN;
-    case AV_PROFILE_H264_HIGH: return STD_VIDEO_H264_PROFILE_IDC_HIGH;
-    case AV_PROFILE_H264_HIGH_444_PREDICTIVE: return STD_VIDEO_H264_PROFILE_IDC_HIGH_444_PREDICTIVE;
-    default: return STD_VIDEO_H264_PROFILE_IDC_INVALID;
-    }
+    FFVulkanContext *ctx = opaque;
+    FFVkVideoBuffer *buf = (FFVkVideoBuffer *)data;
+    ff_vk_unmap_buffer(ctx, &buf->buf, 0);
+    ff_vk_free_buf(ctx, &buf->buf);
+    av_free(data);
 }
 
-int ff_vk_h264_profile_to_av(StdVideoH264ProfileIdc profile)
+static AVBufferRef *alloc_data_buf(void *opaque, size_t size)
 {
-    switch (profile) {
-    case STD_VIDEO_H264_PROFILE_IDC_BASELINE: return AV_PROFILE_H264_CONSTRAINED_BASELINE;
-    case STD_VIDEO_H264_PROFILE_IDC_MAIN: return AV_PROFILE_H264_MAIN;
-    case STD_VIDEO_H264_PROFILE_IDC_HIGH: return AV_PROFILE_H264_HIGH;
-    case STD_VIDEO_H264_PROFILE_IDC_HIGH_444_PREDICTIVE: return AV_PROFILE_H264_HIGH_444_PREDICTIVE;
-    default: return AV_PROFILE_UNKNOWN;
-    }
+    AVBufferRef *ref;
+    uint8_t *buf = av_mallocz(size);
+    if (!buf)
+        return NULL;
+
+    ref = av_buffer_create(buf, size, free_data_buf, opaque, 0);
+    if (!ref)
+        av_free(buf);
+    return ref;
 }
 
-int ff_vk_video_qf_init(FFVulkanContext *s, FFVkQueueFamilyCtx *qf,
-                        VkQueueFlagBits family, VkVideoCodecOperationFlagBitsKHR caps)
+int ff_vk_video_get_buffer(FFVulkanContext *ctx, FFVkVideoCommon *s,
+                           AVBufferRef **buf, VkBufferUsageFlags usage,
+                           void *create_pNext, size_t size)
 {
-    for (int i = 0; i < s->hwctx->nb_qf; i++) {
-        if ((s->hwctx->qf[i].flags & family) &&
-            (s->hwctx->qf[i].video_caps & caps)) {
-            qf->queue_family = s->hwctx->qf[i].idx;
-            qf->nb_queues = s->hwctx->qf[i].num;
-            return 0;
-        }
+    int err;
+    AVBufferRef *ref;
+    FFVkVideoBuffer *data;
+
+    if (!s->buf_pool) {
+        s->buf_pool = av_buffer_pool_init2(sizeof(FFVkVideoBuffer), ctx,
+                                           alloc_data_buf, NULL);
+        if (!s->buf_pool)
+            return AVERROR(ENOMEM);
     }
-    return AVERROR(ENOTSUP);
-}
 
-int ff_vk_create_view(FFVulkanContext *s, FFVkVideoCommon *common,
-                      VkImageView *view, VkImageAspectFlags *aspect,
-                      AVVkFrame *src, VkFormat vkf, int is_dpb)
-{
-    VkResult ret;
-    FFVulkanFunctions *vk = &s->vkfn;
-    VkImageAspectFlags aspect_mask = ff_vk_aspect_bits_from_vkfmt(vkf);
+    *buf = ref = av_buffer_pool_get(s->buf_pool);
+    if (!ref)
+        return AVERROR(ENOMEM);
 
-    VkSamplerYcbcrConversionInfo yuv_sampler_info = {
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO,
-        .conversion = common->yuv_sampler,
-    };
-    VkImageViewCreateInfo img_view_create_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext = &yuv_sampler_info,
-        .viewType = common->layered_dpb && is_dpb ?
-                    VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D,
-        .format = vkf,
-        .image = src->img[0],
-        .components = (VkComponentMapping) {
-            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-        },
-        .subresourceRange = (VkImageSubresourceRange) {
-            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseArrayLayer = 0,
-            .layerCount     = common->layered_dpb && is_dpb ?
-                              VK_REMAINING_ARRAY_LAYERS : 1,
-            .levelCount     = 1,
-        },
-    };
+    data = (FFVkVideoBuffer *)ref->data;
 
-    ret = vk->CreateImageView(s->hwctx->act_dev, &img_view_create_info,
-                              s->hwctx->alloc, view);
-    if (ret != VK_SUCCESS)
-        return AVERROR_EXTERNAL;
+    if (data->buf.size >= size)
+        return 0;
 
-    *aspect = aspect_mask;
+    /* No point in requesting anything smaller. */
+    size = FFMAX(size, 1024*1024);
+
+    /* Align buffer to nearest power of two. Makes fragmentation management
+     * easier, and gives us ample headroom. */
+    size--;
+    size |= size >>  1;
+    size |= size >>  2;
+    size |= size >>  4;
+    size |= size >>  8;
+    size |= size >> 16;
+    size++;
+
+    ff_vk_free_buf(ctx, &data->buf);
+    memset(data, 0, sizeof(FFVkVideoBuffer));
+
+    err = ff_vk_create_buf(ctx, &data->buf, size,
+                           create_pNext, NULL, usage,
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    if (err < 0) {
+        av_buffer_unref(&ref);
+        return err;
+    }
+
+    /* Map the buffer */
+    err = ff_vk_map_buffer(ctx, &data->buf, &data->mem, 0);
+    if (err < 0) {
+        av_buffer_unref(&ref);
+        return err;
+    }
 
     return 0;
 }
@@ -300,20 +273,10 @@ av_cold void ff_vk_video_common_uninit(FFVulkanContext *s,
 
     av_freep(&common->mem);
 
-    if (common->layered_view)
-        vk->DestroyImageView(s->hwctx->act_dev, common->layered_view,
-                             s->hwctx->alloc);
-
-    av_frame_free(&common->layered_frame);
-
-    av_buffer_unref(&common->dpb_hwfc_ref);
-
-    if (common->yuv_sampler)
-        vk->DestroySamplerYcbcrConversion(s->hwctx->act_dev, common->yuv_sampler,
-                                          s->hwctx->alloc);
+    av_buffer_pool_uninit(&common->buf_pool);
 }
 
-av_cold int ff_vk_video_common_init(AVCodecContext *avctx, FFVulkanContext *s,
+av_cold int ff_vk_video_common_init(void *log, FFVulkanContext *s,
                                     FFVkVideoCommon *common,
                                     VkVideoSessionCreateInfoKHR *session_create)
 {
@@ -322,25 +285,6 @@ av_cold int ff_vk_video_common_init(AVCodecContext *avctx, FFVulkanContext *s,
     FFVulkanFunctions *vk = &s->vkfn;
     VkVideoSessionMemoryRequirementsKHR *mem = NULL;
     VkBindVideoSessionMemoryInfoKHR *bind_mem = NULL;
-
-    int cxpos = 0, cypos = 0;
-    VkSamplerYcbcrConversionCreateInfo yuv_sampler_info = {
-        .sType      = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO,
-        .components = ff_comp_identity_map,
-        .ycbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY,
-        .ycbcrRange = avctx->color_range == AVCOL_RANGE_MPEG, /* Ignored */
-        .format     = session_create->pictureFormat,
-    };
-
-    /* Create identity YUV sampler
-     * (VkImageViews of YUV image formats require it, even if it does nothing) */
-    av_chroma_location_enum_to_pos(&cxpos, &cypos, avctx->chroma_sample_location);
-    yuv_sampler_info.xChromaOffset = cxpos >> 7;
-    yuv_sampler_info.yChromaOffset = cypos >> 7;
-    ret = vk->CreateSamplerYcbcrConversion(s->hwctx->act_dev, &yuv_sampler_info,
-                                           s->hwctx->alloc, &common->yuv_sampler);
-    if (ret != VK_SUCCESS)
-        return AVERROR_EXTERNAL;
 
     /* Create session */
     ret = vk->CreateVideoSessionKHR(s->hwctx->act_dev, session_create,
@@ -407,7 +351,7 @@ av_cold int ff_vk_video_common_init(AVCodecContext *avctx, FFVulkanContext *s,
             .memorySize = mem[i].memoryRequirements.size,
         };
 
-        av_log(avctx, AV_LOG_VERBOSE, "Allocating %"PRIu64" bytes in bind index %i for video session\n",
+        av_log(log, AV_LOG_VERBOSE, "Allocating %"PRIu64" bytes in bind index %i for video session\n",
                bind_mem[i].memorySize, bind_mem[i].memoryBindIndex);
     }
 

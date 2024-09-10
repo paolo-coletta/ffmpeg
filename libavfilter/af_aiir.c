@@ -22,13 +22,12 @@
 
 #include "libavutil/avstring.h"
 #include "libavutil/intreadwrite.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/xga_font_data.h"
 #include "audio.h"
 #include "avfilter.h"
-#include "filters.h"
 #include "formats.h"
+#include "internal.h"
 #include "video.h"
 
 typedef struct ThreadData {
@@ -78,11 +77,9 @@ typedef struct AudioIIRContext {
     int (*iir_channel)(AVFilterContext *ctx, void *arg, int ch, int nb_jobs);
 } AudioIIRContext;
 
-static int query_formats(const AVFilterContext *ctx,
-                         AVFilterFormatsConfig **cfg_in,
-                         AVFilterFormatsConfig **cfg_out)
+static int query_formats(AVFilterContext *ctx)
 {
-    const AudioIIRContext *s = ctx->priv;
+    AudioIIRContext *s = ctx->priv;
     AVFilterFormats *formats;
     enum AVSampleFormat sample_fmts[] = {
         AV_SAMPLE_FMT_DBLP,
@@ -95,17 +92,23 @@ static int query_formats(const AVFilterContext *ctx,
     int ret;
 
     if (s->response) {
+        AVFilterLink *videolink = ctx->outputs[1];
+
         formats = ff_make_format_list(pix_fmts);
-        if ((ret = ff_formats_ref(formats, &cfg_out[1]->formats)) < 0)
+        if ((ret = ff_formats_ref(formats, &videolink->incfg.formats)) < 0)
             return ret;
     }
 
-    sample_fmts[0] = s->sample_format;
-    ret = ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, sample_fmts);
+    ret = ff_set_common_all_channel_counts(ctx);
     if (ret < 0)
         return ret;
 
-    return 0;
+    sample_fmts[0] = s->sample_format;
+    ret = ff_set_common_formats_from_list(ctx, sample_fmts);
+    if (ret < 0)
+        return ret;
+
+    return ff_set_common_all_samplerates(ctx);
 }
 
 #define IIR_CH(name, type, min, max, need_clipping)                     \
@@ -816,6 +819,7 @@ static void solve(double *matrix, double *vector, int n, double *y, double *x, d
 static int convert_serial2parallel(AVFilterContext *ctx, int channels)
 {
     AudioIIRContext *s = ctx->priv;
+    int ret = 0;
 
     for (int ch = 0; ch < channels; ch++) {
         IIRChannel *iir = &s->iir[ch];
@@ -824,17 +828,17 @@ static int convert_serial2parallel(AVFilterContext *ctx, int channels)
         double *impulse = av_calloc(length, sizeof(*impulse));
         double *y = av_calloc(length, sizeof(*y));
         double *resp = av_calloc(length, sizeof(*resp));
-        double *M = av_calloc((length - 1) * nb_biquads, 2 * 2 * sizeof(*M));
-        double *W;
+        double *M = av_calloc((length - 1) * 2 * nb_biquads, sizeof(*M));
+        double *W = av_calloc((length - 1) * 2 * nb_biquads, sizeof(*W));
 
         if (!impulse || !y || !resp || !M) {
             av_free(impulse);
             av_free(y);
             av_free(resp);
             av_free(M);
+            av_free(W);
             return AVERROR(ENOMEM);
         }
-        W = M + (length - 1) * 2 * nb_biquads;
 
         impulse[0] = 1.;
 
@@ -873,6 +877,10 @@ static int convert_serial2parallel(AVFilterContext *ctx, int channels)
         av_free(y);
         av_free(resp);
         av_free(M);
+        av_free(W);
+
+        if (ret < 0)
+            return ret;
     }
 
     return 0;
@@ -1430,15 +1438,14 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 
 static int config_video(AVFilterLink *outlink)
 {
-    FilterLink *l = ff_filter_link(outlink);
     AVFilterContext *ctx = outlink->src;
     AudioIIRContext *s = ctx->priv;
 
     outlink->sample_aspect_ratio = (AVRational){1,1};
     outlink->w = s->w;
     outlink->h = s->h;
-    l->frame_rate = s->rate;
-    outlink->time_base = av_inv_q(l->frame_rate);
+    outlink->frame_rate = s->rate;
+    outlink->time_base = av_inv_q(outlink->frame_rate);
 
     return 0;
 }
@@ -1568,7 +1575,7 @@ const AVFilter ff_af_aiir = {
     .init          = init,
     .uninit        = uninit,
     FILTER_INPUTS(inputs),
-    FILTER_QUERY_FUNC2(query_formats),
+    FILTER_QUERY_FUNC(query_formats),
     .flags         = AVFILTER_FLAG_DYNAMIC_OUTPUTS |
                      AVFILTER_FLAG_SLICE_THREADS,
 };

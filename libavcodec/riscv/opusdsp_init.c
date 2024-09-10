@@ -23,7 +23,7 @@
 #include "libavutil/attributes.h"
 #include "libavutil/cpu.h"
 #include "libavutil/riscv/cpu.h"
-#include "libavcodec/opus/dsp.h"
+#include "libavcodec/opusdsp.h"
 
 void ff_opus_postfilter_rvv(float *data, int period, float *g, int len);
 
@@ -32,7 +32,8 @@ av_cold void ff_opus_dsp_init_riscv(OpusDSP *d)
 #if HAVE_RVV
     int flags = av_get_cpu_flags();
 
-    if ((flags & AV_CPU_FLAG_RVV_F32) && (flags & AV_CPU_FLAG_RVB))
+    if ((flags & AV_CPU_FLAG_RVV_F32) && (flags & AV_CPU_FLAG_RVB_ADDR) &&
+        (flags & AV_CPU_FLAG_RVB_BASIC))
         d->postfilter = ff_opus_postfilter_rvv;
 #endif
 }

@@ -29,14 +29,13 @@
  * TODO: segmentation
  */
 
-#include "libavutil/mem.h"
+#include "libavutil/imgutils.h"
 #include "libavutil/motion_vector.h"
 #include "libavutil/opt.h"
-#include "libavutil/pixdesc.h"
 #include "libavutil/video_enc_params.h"
 #include "avfilter.h"
-#include "filters.h"
 #include "qp_table.h"
+#include "internal.h"
 #include "video.h"
 
 #define MV_P_FOR  (1<<0)

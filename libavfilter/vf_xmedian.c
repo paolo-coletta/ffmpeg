@@ -22,13 +22,12 @@
 
 #include "libavutil/avstring.h"
 #include "libavutil/imgutils.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/qsort.h"
 
 #include "avfilter.h"
-#include "filters.h"
+#include "internal.h"
 #include "framesync.h"
 #include "video.h"
 
@@ -59,10 +58,6 @@ typedef struct XMedianContext {
 
     int (*median_frames)(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs);
 } XMedianContext;
-
-#define OFFSET(x) offsetof(XMedianContext, x)
-#define FLAGS AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_FILTERING_PARAM
-#define TFLAGS AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_RUNTIME_PARAM
 
 static const enum AVPixelFormat pixel_fmts[] = {
     AV_PIX_FMT_GRAY8,
@@ -239,11 +234,9 @@ static int config_output(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
     XMedianContext *s = ctx->priv;
-    AVFilterLink *inlink = ctx->inputs[0];
-    FilterLink *il = ff_filter_link(inlink);
-    FilterLink *ol = ff_filter_link(outlink);
-    AVRational frame_rate = il->frame_rate;
+    AVRational frame_rate = ctx->inputs[0]->frame_rate;
     AVRational sar = ctx->inputs[0]->sample_aspect_ratio;
+    AVFilterLink *inlink = ctx->inputs[0];
     int height = ctx->inputs[0]->h;
     int width = ctx->inputs[0]->w;
     FFFrameSyncIn *in;
@@ -290,7 +283,7 @@ static int config_output(AVFilterLink *outlink)
 
     outlink->w          = width;
     outlink->h          = height;
-    ol->frame_rate      = frame_rate;
+    outlink->frame_rate = frame_rate;
     outlink->sample_aspect_ratio = sar;
 
     if ((ret = ff_framesync_init(&s->fs, ctx, s->nb_inputs)) < 0)
@@ -366,6 +359,10 @@ static av_cold int xmedian_init(AVFilterContext *ctx)
 
     return init(ctx);
 }
+
+#define OFFSET(x) offsetof(XMedianContext, x)
+#define FLAGS AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_FILTERING_PARAM
+#define TFLAGS AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_RUNTIME_PARAM
 
 static const AVOption xmedian_options[] = {
     { "inputs", "set number of inputs", OFFSET(nb_inputs), AV_OPT_TYPE_INT, {.i64=3},  3, 255, .flags = FLAGS },

@@ -50,7 +50,7 @@ typedef struct VAAPIAV1DecContext {
 
 static VASurfaceID vaapi_av1_surface_id(AV1Frame *vf)
 {
-    if (vf->f)
+    if (vf)
         return ff_vaapi_get_surface_id(vf->f);
     else
         return VA_INVALID_SURFACE;
@@ -138,7 +138,7 @@ static int vaapi_av1_start_frame(AVCodecContext *avctx,
             goto fail;
         pic->output_surface = ff_vaapi_get_surface_id(ctx->tmp_frame);
     } else {
-        pic->output_surface = ff_vaapi_get_surface_id(s->cur_frame.f);
+        pic->output_surface = vaapi_av1_surface_id(&s->cur_frame);
     }
 
     memset(&pic_param, 0, sizeof(VADecPictureParameterBufferAV1));
@@ -148,7 +148,7 @@ static int vaapi_av1_start_frame(AVCodecContext *avctx,
         .bit_depth_idx              = bit_depth_idx,
         .matrix_coefficients        = seq->color_config.matrix_coefficients,
         .current_frame              = pic->output_surface,
-        .current_display_picture    = ff_vaapi_get_surface_id(s->cur_frame.f),
+        .current_display_picture    = vaapi_av1_surface_id(&s->cur_frame),
         .frame_width_minus1         = frame_header->frame_width_minus_1,
         .frame_height_minus1        = frame_header->frame_height_minus_1,
         .primary_ref_frame          = frame_header->primary_ref_frame,
@@ -404,15 +404,14 @@ static int vaapi_av1_decode_slice(AVCodecContext *avctx,
 
     nb_params = s->tg_end - s->tg_start + 1;
     if (ctx->nb_slice_params < nb_params) {
-        VASliceParameterBufferAV1 *tmp = av_realloc_array(ctx->slice_params,
-                                                          nb_params,
-                                                          sizeof(*ctx->slice_params));
-        if (!tmp) {
+        ctx->slice_params = av_realloc_array(ctx->slice_params,
+                                             nb_params,
+                                             sizeof(*ctx->slice_params));
+        if (!ctx->slice_params) {
             ctx->nb_slice_params = 0;
             err = AVERROR(ENOMEM);
             goto fail;
         }
-        ctx->slice_params    = tmp;
         ctx->nb_slice_params = nb_params;
     }
 

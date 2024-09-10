@@ -20,11 +20,9 @@
  */
 
 #include "libavutil/channel_layout.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "avfilter.h"
 #include "audio.h"
-#include "filters.h"
 #include "formats.h"
 
 typedef struct StereoWidenContext {
@@ -54,30 +52,19 @@ static const AVOption stereowiden_options[] = {
 
 AVFILTER_DEFINE_CLASS(stereowiden);
 
-static int query_formats(const AVFilterContext *ctx,
-                         AVFilterFormatsConfig **cfg_in,
-                         AVFilterFormatsConfig **cfg_out)
+static int query_formats(AVFilterContext *ctx)
 {
-    static const enum AVSampleFormat formats[] = {
-        AV_SAMPLE_FMT_FLT,
-        AV_SAMPLE_FMT_NONE,
-    };
-    static const AVChannelLayout layouts[] = {
-        AV_CHANNEL_LAYOUT_STEREO,
-        { .nb_channels = 0 },
-    };
-
+    AVFilterFormats *formats = NULL;
+    AVFilterChannelLayouts *layout = NULL;
     int ret;
 
-    ret = ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, formats);
-    if (ret < 0)
+    if ((ret = ff_add_format                 (&formats, AV_SAMPLE_FMT_FLT  )) < 0 ||
+        (ret = ff_set_common_formats         (ctx     , formats            )) < 0 ||
+        (ret = ff_add_channel_layout         (&layout , &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO)) < 0 ||
+        (ret = ff_set_common_channel_layouts (ctx     , layout             )) < 0)
         return ret;
 
-    ret = ff_set_common_channel_layouts_from_list2(ctx, cfg_in, cfg_out, layouts);
-    if (ret < 0)
-        return ret;
-
-    return 0;
+    return ff_set_common_all_samplerates(ctx);
 }
 
 static int config_input(AVFilterLink *inlink)
@@ -169,7 +156,7 @@ const AVFilter ff_af_stereowiden = {
     .uninit         = uninit,
     FILTER_INPUTS(inputs),
     FILTER_OUTPUTS(ff_audio_default_filterpad),
-    FILTER_QUERY_FUNC2(query_formats),
+    FILTER_QUERY_FUNC(query_formats),
     .flags          = AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL,
     .process_command = ff_filter_process_command,
 };

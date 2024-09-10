@@ -24,7 +24,6 @@
  * RTP protocol
  */
 
-#include "libavutil/mem.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/avstring.h"
 #include "libavutil/opt.h"
@@ -35,6 +34,7 @@
 #include "ip.h"
 
 #include <stdarg.h>
+#include "internal.h"
 #include "network.h"
 #include "os_support.h"
 #include <fcntl.h>
@@ -379,7 +379,6 @@ static int rtp_open(URLContext *h, const char *uri, int flags)
     return 0;
 
  fail:
-    ff_ip_reset_filters(&s->filters);
     ffurl_closep(&s->rtp_hd);
     ffurl_closep(&s->rtcp_hd);
     ffurl_closep(&s->fec_hd);

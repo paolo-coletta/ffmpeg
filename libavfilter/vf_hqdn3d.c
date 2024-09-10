@@ -32,13 +32,12 @@
 #include "libavutil/attributes.h"
 #include "libavutil/common.h"
 #include "libavutil/emms.h"
-#include "libavutil/mem.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/opt.h"
 
 #include "avfilter.h"
-#include "filters.h"
+#include "internal.h"
 #include "video.h"
 #include "vf_hqdn3d.h"
 

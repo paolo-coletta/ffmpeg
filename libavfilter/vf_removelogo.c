@@ -70,10 +70,9 @@
  */
 
 #include "libavutil/imgutils.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "avfilter.h"
-#include "filters.h"
+#include "internal.h"
 #include "video.h"
 #include "bbox.h"
 #include "lavfutils.h"

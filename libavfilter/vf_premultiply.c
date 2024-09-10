@@ -27,6 +27,7 @@
 #include "filters.h"
 #include "formats.h"
 #include "framesync.h"
+#include "internal.h"
 #include "video.h"
 
 typedef struct ThreadData {
@@ -695,8 +696,6 @@ static int config_output(AVFilterLink *outlink)
     PreMultiplyContext *s = ctx->priv;
     AVFilterLink *base = ctx->inputs[0];
     AVFilterLink *alpha;
-    FilterLink *il = ff_filter_link(base);
-    FilterLink *ol = ff_filter_link(outlink);
     FFFrameSyncIn *in;
     int ret;
 
@@ -718,7 +717,7 @@ static int config_output(AVFilterLink *outlink)
     outlink->h = base->h;
     outlink->time_base = base->time_base;
     outlink->sample_aspect_ratio = base->sample_aspect_ratio;
-    ol->frame_rate = il->frame_rate;
+    outlink->frame_rate = base->frame_rate;
 
     if (s->inplace)
         return 0;

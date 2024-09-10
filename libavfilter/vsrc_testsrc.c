@@ -35,19 +35,21 @@
 
 #include "config_components.h"
 
+#include <float.h>
+
 #include "libavutil/avassert.h"
 #include "libavutil/common.h"
 #include "libavutil/ffmath.h"
-#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/intreadwrite.h"
+#include "libavutil/parseutils.h"
 #include "libavutil/xga_font_data.h"
 #include "avfilter.h"
 #include "drawutils.h"
 #include "filters.h"
-#include "filters.h"
 #include "formats.h"
+#include "internal.h"
 #include "video.h"
 
 typedef struct TestSourceContext {
@@ -148,12 +150,11 @@ static av_cold void uninit(AVFilterContext *ctx)
 static int config_props(AVFilterLink *outlink)
 {
     TestSourceContext *test = outlink->src->priv;
-    FilterLink *l = ff_filter_link(outlink);
 
     outlink->w = test->w;
     outlink->h = test->h;
     outlink->sample_aspect_ratio = test->sar;
-    l->frame_rate = test->frame_rate;
+    outlink->frame_rate = test->frame_rate;
     outlink->time_base  = test->time_base;
 
     return 0;
@@ -261,6 +262,8 @@ static int color_config_props(AVFilterLink *inlink)
                   inlink->color_range, 0);
     ff_draw_color(&test->draw, &test->color, test->color_rgba);
 
+    test->w = ff_draw_round_to_sub(&test->draw, 0, -1, test->w);
+    test->h = ff_draw_round_to_sub(&test->draw, 1, -1, test->h);
     if (av_image_check_size(test->w, test->h, 0, ctx) < 0)
         return AVERROR(EINVAL);
 
@@ -696,15 +699,6 @@ const AVFilter ff_vsrc_testsrc = {
 
 #endif /* CONFIG_TESTSRC_FILTER */
 
-static void av_unused set_color(TestSourceContext *s, FFDrawColor *color, uint32_t argb)
-{
-    uint8_t rgba[4] = { (argb >> 16) & 0xFF,
-                        (argb >>  8) & 0xFF,
-                        (argb >>  0) & 0xFF,
-                        (argb >> 24) & 0xFF, };
-    ff_draw_color(&s->draw, color, rgba);
-}
-
 #if CONFIG_TESTSRC2_FILTER
 
 static const AVOption testsrc2_options[] = {
@@ -714,6 +708,15 @@ static const AVOption testsrc2_options[] = {
 };
 
 AVFILTER_DEFINE_CLASS(testsrc2);
+
+static void set_color(TestSourceContext *s, FFDrawColor *color, uint32_t argb)
+{
+    uint8_t rgba[4] = { (argb >> 16) & 0xFF,
+                        (argb >>  8) & 0xFF,
+                        (argb >>  0) & 0xFF,
+                        (argb >> 24) & 0xFF, };
+    ff_draw_color(&s->draw, color, rgba);
+}
 
 static uint32_t color_gradient(unsigned index)
 {
