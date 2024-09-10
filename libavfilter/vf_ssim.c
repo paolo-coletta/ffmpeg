@@ -36,12 +36,13 @@
 
 #include "libavutil/avstring.h"
 #include "libavutil/file_open.h"
+#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avfilter.h"
 #include "drawutils.h"
+#include "filters.h"
 #include "framesync.h"
-#include "internal.h"
 #include "ssim.h"
 
 typedef struct SSIMContext {
@@ -358,6 +359,13 @@ static int do_ssim(FFFrameSync *fs)
         td.planeheight[n] = s->planeheight[n];
     }
 
+    if (master->color_range != ref->color_range) {
+        av_log(ctx, AV_LOG_WARNING, "master and reference "
+               "frames use different color ranges (%s != %s)\n",
+               av_color_range_name(master->color_range),
+               av_color_range_name(ref->color_range));
+    }
+
     ff_filter_execute(ctx, s->ssim_plane, &td, NULL,
                       FFMIN((s->planeheight[1] + 3) >> 2, s->nb_threads));
 
@@ -499,6 +507,8 @@ static int config_output(AVFilterLink *outlink)
     AVFilterContext *ctx = outlink->src;
     SSIMContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
+    FilterLink *il = ff_filter_link(mainlink);
+    FilterLink *ol = ff_filter_link(outlink);
     int ret;
 
     ret = ff_framesync_init_dualinput(&s->fs, ctx);
@@ -508,7 +518,7 @@ static int config_output(AVFilterLink *outlink)
     outlink->h = mainlink->h;
     outlink->time_base = mainlink->time_base;
     outlink->sample_aspect_ratio = mainlink->sample_aspect_ratio;
-    outlink->frame_rate = mainlink->frame_rate;
+    ol->frame_rate = il->frame_rate;
 
     if ((ret = ff_framesync_configure(&s->fs)) < 0)
         return ret;
