@@ -1099,6 +1099,16 @@ static int mpegts_init(AVFormatContext *s)
     const char *provider_name;
     int i, j;
     int ret;
+	int start_audio_pid = ts->start_audio_pid;
+	int start_video_pid = ts->start_video_pid;
+	int start_pid = ts->start_pid;
+	if( start_audio_pid <= 0 ) {
+		start_audio_pid = start_pid;
+		if( start_audio_pid <= 0 )
+			start_audio_pid = 0x0100;
+	}
+	if( (start_video_pid <= 0) ||(start_audio_pid == start_video_pid) )
+		start_video_pid = start_audio_pid + 1;
 
     if (ts->m2ts_mode == -1) {
         if (av_match_ext(s->url, "m2ts")) {
@@ -1108,8 +1118,8 @@ static int mpegts_init(AVFormatContext *s)
         }
     }
 
-    ts->m2ts_video_pid   = ts->start_video_pid;
-    ts->m2ts_audio_pid   = ts->start_audio_pid;
+    ts->m2ts_video_pid   = start_video_pid
+    ts->m2ts_audio_pid   = start_audio_pid;
     ts->m2ts_pgssub_pid  = M2TS_PGSSUB_START_PID;
     ts->m2ts_textsub_pid = M2TS_TEXTSUB_PID;
 
@@ -2354,12 +2364,12 @@ static const AVOption options[] = {
       0, AV_OPT_TYPE_CONST, { .i64 = MPEGTS_SERVICE_TYPE_HEVC_DIGITAL_HDTV }, 0x01, 0xff, ENC, .unit = "mpegts_service_type" },
     { "mpegts_pmt_start_pid", "Set the first pid of the PMT.",
       OFFSET(pmt_start_pid), AV_OPT_TYPE_INT, { .i64 = 0x1000 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
-    { "mpegts_start_pid", "Set the first pid.",
+    { "mpegts_start_pid", "Set the first pid (deprectated in this customized version: use mpegts_start_audio_pid and mpegts_start_video_pid instead!",
       OFFSET(start_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
-    { "mpegts_start_audio_pid", "Set the first audio pid. (deprectated in this custimzed version: use mpegts_start_audio_pid and mpegts_start_video_pid instead!",
-      OFFSET(start_audio_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
+    { "mpegts_start_audio_pid", "Set the first audio pid.",
+      OFFSET(start_audio_pid), AV_OPT_TYPE_INT, { .i64 = 0x0000 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
     { "mpegts_start_video_pid", "Set the first video pid.",
-      OFFSET(start_video_pid), AV_OPT_TYPE_INT, { .i64 = 0x0100 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
+      OFFSET(start_video_pid), AV_OPT_TYPE_INT, { .i64 = 0x0000 }, FIRST_OTHER_PID, LAST_OTHER_PID, ENC },
     { "mpegts_m2ts_mode", "Enable m2ts mode.", OFFSET(m2ts_mode), AV_OPT_TYPE_BOOL, { .i64 = -1 }, -1, 1, ENC },
     { "muxrate", NULL, OFFSET(mux_rate), AV_OPT_TYPE_INT, { .i64 = 1 }, 0, INT_MAX, ENC },
     { "pes_payload_size", "Minimum PES packet payload in bytes",
