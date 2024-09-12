@@ -1118,7 +1118,7 @@ static int mpegts_init(AVFormatContext *s)
         }
     }
 
-    ts->m2ts_video_pid   = start_video_pid
+    ts->m2ts_video_pid   = start_video_pid;
     ts->m2ts_audio_pid   = start_audio_pid;
     ts->m2ts_pgssub_pid  = M2TS_PGSSUB_START_PID;
     ts->m2ts_textsub_pid = M2TS_TEXTSUB_PID;
